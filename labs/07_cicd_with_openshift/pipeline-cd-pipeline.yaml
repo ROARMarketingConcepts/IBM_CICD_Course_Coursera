@@ -1,0 +1,118 @@
+﻿apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: >
+      {"apiVersion":"tekton.dev/v1beta1","kind":"Pipeline","metadata":{"annotations":{},"name":"cd-pipeline","namespace":"sn-labs-ken123456716"},"spec":{"params":[{"name":"app-name"},{"name":"build-image"},{"name":"repo-url"},{"default":"master","name":"branch"}],"tasks":[{"name":"init","taskRef":{"name":"cleanup"},"workspaces":[{"name":"source","workspace":"pipeline-workspace"}]},{"name":"clone","params":[{"name":"url","value":"$(params.repo-url)"},{"name":"revision","value":"$(params.branch)"}],"runAfter":["init"],"taskRef":{"name":"git-clone"},"workspaces":[{"name":"output","workspace":"pipeline-workspace"}]},{"name":"lint","params":[{"name":"image","value":"python:3.9-slim"},{"name":"args","value":["--count","--max-complexity=10","--max-line-length=127","--statistics"]}],"runAfter":["clone"],"taskRef":{"name":"flake8"},"workspaces":[{"name":"source","workspace":"pipeline-workspace"}]},{"name":"tests","params":[{"name":"args","value":"-v
+      --with-spec
+      --spec-color"}],"runAfter":["lint"],"taskRef":{"name":"nose"},"workspaces":[{"name":"source","workspace":"pipeline-workspace"}]},{"name":"build","params":[{"name":"IMAGE","value":"$(params.build-image)"}],"runAfter":["tests"],"taskRef":{"kind":"ClusterTask","name":"buildah"},"workspaces":[{"name":"source","workspace":"pipeline-workspace"}]},{"name":"deploy","params":[{"name":"SCRIPT","value":"oc
+      create deploy $(params.app-name)
+      --image=$(params.build-image)"}],"runAfter":["build"],"taskRef":{"kind":"ClusterTask","name":"openshift-client"}}],"workspaces":[{"name":"pipeline-workspace"}]}}
+  creationTimestamp: '2025-01-29T16:27:48Z'
+  generation: 7
+  managedFields:
+    - apiVersion: tekton.dev/v1beta1
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:kubectl.kubernetes.io/last-applied-configuration': {}
+        'f:spec':
+          .: {}
+          'f:params': {}
+          'f:tasks': {}
+          'f:workspaces': {}
+      manager: kubectl-client-side-apply
+      operation: Update
+      time: '2025-01-29T18:57:11Z'
+  name: cd-pipeline
+  namespace: sn-labs-ken123456716
+  resourceVersion: '1980101280'
+  uid: 916f7733-6aa6-4d2d-88e2-743434418d50
+spec:
+  params:
+    - name: app-name
+      type: string
+    - name: build-image
+      type: string
+    - name: repo-url
+      type: string
+    - default: master
+      name: branch
+      type: string
+  tasks:
+    - name: init
+      taskRef:
+        kind: Task
+        name: cleanup
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+    - name: clone
+      params:
+        - name: url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.branch)
+      runAfter:
+        - init
+      taskRef:
+        kind: Task
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: pipeline-workspace
+    - name: lint
+      params:
+        - name: image
+          value: 'python:3.9-slim'
+        - name: args
+          value:
+            - '--count'
+            - '--max-complexity=10'
+            - '--max-line-length=127'
+            - '--statistics'
+      runAfter:
+        - clone
+      taskRef:
+        kind: Task
+        name: flake8
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+    - name: tests
+      params:
+        - name: args
+          value: '-v --with-spec --spec-color'
+      runAfter:
+        - lint
+      taskRef:
+        kind: Task
+        name: nose
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+    - name: build
+      params:
+        - name: IMAGE
+          value: $(params.build-image)
+      runAfter:
+        - tests
+      taskRef:
+        kind: ClusterTask
+        name: buildah
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+    - name: deploy
+      params:
+        - name: SCRIPT
+          value: oc create deploy $(params.app-name) --image=$(params.build-image)
+      runAfter:
+        - build
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+  workspaces:
+    - name: pipeline-workspace
